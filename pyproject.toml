@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harmonia-studio"
+version = "0.9.0"
+description = "AI-assisted music harmonization, arrangement, transcription, notation, playback, and export workstation."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.0",
+  "soundfile>=0.12",
+  "librosa>=0.11",
+  "pretty_midi>=0.2.10",
+  "opencv-python>=4.10",
+  "Pillow>=10",
+  "reportlab>=4",
+]
+
+[project.scripts]
+harmonia-studio = "harmonia_studio.app:main"
+harmonia = "harmonia_studio.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["harmonia_studio*"]
