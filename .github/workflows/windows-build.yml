@@ -1,0 +1,27 @@
+name: Validate Harmonia Studio Windows Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -e . pyinstaller
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Compile source
+        run: python -m compileall harmonia_studio
+      - name: Build Windows executable
+        run: pyinstaller --noconfirm --windowed --name Harmonia-Studio harmonia_studio_launcher.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harmonia-Studio-Windows
+          path: dist/Harmonia-Studio/**
