@@ -1,0 +1,2 @@
+0e6006a6b92ec6a7323cbf0716a9e4ba3fcb19df44e31f3f1ea6c9f20ac24158  Harmonia-Studio-0.9.0-preview-full-source.zip
+32a82100f6218d7bb9c654cf8cc20c9a1ca2ae730078a53c9143679c0ca5cd75  harmonia_studio-0.9.0-py3-none-any.whl
