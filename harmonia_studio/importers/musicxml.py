@@ -47,6 +47,12 @@ def _load_xml(path: Path) -> bytes:
             return z.read(rootfile)
     return path.read_bytes()
 
+def _duration_divisions(el) -> float:
+    try:
+        return float(_text(el, "duration", "0") or 0)
+    except ValueError:
+        return 0.0
+
 def import_musicxml(path: str | Path) -> Score:
     p = Path(path)
     root = ET.fromstring(_load_xml(p))
@@ -54,7 +60,6 @@ def import_musicxml(path: str | Path) -> Score:
         if _local(root.tag) == "score-timewise":
             raise MusicXMLImportError("score-timewise is not yet supported")
         raise MusicXMLImportError("Not a MusicXML score")
-
     work = _child(root, "work")
     title = _text(work, "work-title", "") or _text(root, "movement-title", "") or p.stem
     composer = ""
@@ -63,7 +68,6 @@ def import_musicxml(path: str | Path) -> Score:
         for creator in _children(identification, "creator"):
             if creator.attrib.get("type") == "composer" or not composer:
                 composer = (creator.text or "").strip()
-
     part_names = {}
     part_list = _child(root, "part-list")
     if part_list is not None:
@@ -78,7 +82,6 @@ def import_musicxml(path: str | Path) -> Score:
         current_time = TimeSignature()
         current_key = KeySignature()
         tempo = 120.0
-
         for me in _children(pe, "measure"):
             number_text = me.attrib.get("number", "")
             num = int(number_text) if number_text.isdigit() else len(measures) + 1
@@ -100,7 +103,6 @@ def import_musicxml(path: str | Path) -> Score:
                         int(_text(key_el, "fifths", "0")),
                         _text(key_el, "mode", "major") or "major",
                     )
-
             for direction in _children(me, "direction"):
                 sound = _child(direction, "sound")
                 if sound is not None and "tempo" in sound.attrib:
@@ -111,7 +113,9 @@ def import_musicxml(path: str | Path) -> Score:
 
             notes = []
             harmonies = []
-            onset_by_voice = {}
+            cursor_divisions = 0.0
+            last_onset_by_voice = {}
+
             for child in list(me):
                 tag = _local(child.tag)
                 if tag == "harmony":
@@ -128,13 +132,30 @@ def import_musicxml(path: str | Path) -> Score:
                     kind = (kind_el.text or "major").strip() if kind_el is not None else "major"
                     bass_el = _child(child, "bass")
                     bass = _text(bass_el, "bass-step", "")
+                    bass_alter = _text(bass_el, "bass-alter", "0")
+                    try:
+                        bass_alter_int = int(float(bass_alter or 0))
+                    except ValueError:
+                        bass_alter_int = 0
+                    if bass and bass_alter_int:
+                        bass += "#" if bass_alter_int > 0 else "b"
                     symbol = (kind_el.attrib.get("text", "") if kind_el is not None else "") or root_step
                     harmonies.append(Harmony(root_step, kind, bass, symbol))
-
+                elif tag == "backup":
+                    cursor_divisions = max(0.0, cursor_divisions - _duration_divisions(child))
+                elif tag == "forward":
+                    cursor_divisions += _duration_divisions(child)
                 elif tag == "note":
-                    voice = int(_text(child, "voice", "1") or 1)
-                    duration = float(_text(child, "duration", "0") or 0) / max(divisions, 1e-9)
-                    staff = int(_text(child, "staff", "1") or 1)
+                    try:
+                        voice = int(_text(child, "voice", "1") or 1)
+                    except ValueError:
+                        voice = 1
+                    duration_divisions = _duration_divisions(child)
+                    duration = duration_divisions / max(divisions, 1e-9)
+                    try:
+                        staff = int(_text(child, "staff", "1") or 1)
+                    except ValueError:
+                        staff = 1
                     pitch = None
                     if _child(child, "rest") is None:
                         pitch_el = _child(child, "pitch")
@@ -149,24 +170,26 @@ def import_musicxml(path: str | Path) -> Score:
                         for le in _children(child, "lyric")
                     ]
                     ties = _children(child, "tie")
-                    onset = onset_by_voice.get(voice, 0.0)
-                    note = Note(
-                        pitch=pitch,
-                        duration=duration,
-                        voice=voice,
-                        staff=staff,
-                        dots=len(_children(child, "dot")),
-                        tie_start=any(t.attrib.get("type") == "start" for t in ties),
-                        tie_stop=any(t.attrib.get("type") == "stop" for t in ties),
-                        lyrics=lyrics,
-                        onset=onset,
-                    )
-                    if _child(child, "chord") is not None:
-                        note.onset = max(0.0, onset - duration)
+                    is_chord = _child(child, "chord") is not None
+                    if is_chord:
+                        onset_divisions = last_onset_by_voice.get(voice, cursor_divisions)
                     else:
-                        onset_by_voice[voice] = onset + duration
-                    notes.append(note)
-
+                        onset_divisions = cursor_divisions
+                        last_onset_by_voice[voice] = onset_divisions
+                        cursor_divisions += duration_divisions
+                    notes.append(
+                        Note(
+                            pitch=pitch,
+                            duration=duration,
+                            voice=voice,
+                            staff=staff,
+                            dots=len(_children(child, "dot")),
+                            tie_start=any(t.attrib.get("type") == "start" for t in ties),
+                            tie_stop=any(t.attrib.get("type") == "stop" for t in ties),
+                            lyrics=lyrics,
+                            onset=onset_divisions / max(divisions, 1e-9),
+                        )
+                    )
             measures.append(
                 Measure(
                     num,
@@ -181,5 +204,4 @@ def import_musicxml(path: str | Path) -> Score:
         parts.append(
             Part(pid, part_names.get(pid, pid), Instrument(part_names.get(pid, "Piano")), measures)
         )
-
     return Score(title, composer, parts, {"sourceFormat": "MusicXML", "sourcePath": str(p)})
