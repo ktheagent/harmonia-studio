@@ -9,19 +9,48 @@ jobs:
   test-and-package:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
       - name: Install dependencies
-        run: pip install -e . pyinstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pyinstaller
+
       - name: Run tests
         run: python -m unittest discover -s tests -v
+
       - name: Compile source
         run: python -m compileall harmonia_studio
+
+      - name: Smoke import
+        run: python -c "import harmonia_studio; import harmonia_studio.app; import harmonia_studio.cli"
+
       - name: Build Windows executable
         run: pyinstaller --noconfirm --windowed --name Harmonia-Studio harmonia_studio_launcher.py
-      - uses: actions/upload-artifact@v4
+
+      - name: Read package version
+        id: package
+        shell: pwsh
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Package portable Windows build
+        shell: pwsh
+        run: |
+          $version = "${{ steps.package.outputs.version }}"
+          $zip = "Harmonia-Studio-$version-Windows-Portable.zip"
+          Compress-Archive -Path "dist/Harmonia-Studio/*" -DestinationPath $zip -Force
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          "$hash  $zip" | Set-Content -Encoding ascii SHA256SUMS-Windows.txt
+
+      - uses: actions/upload-artifact@v6
         with:
-          name: Harmonia-Studio-Windows
-          path: dist/Harmonia-Studio/**
+          name: Harmonia-Studio-${{ steps.package.outputs.version }}-Windows
+          path: |
+            Harmonia-Studio-${{ steps.package.outputs.version }}-Windows-Portable.zip
+            SHA256SUMS-Windows.txt
+          if-no-files-found: error
