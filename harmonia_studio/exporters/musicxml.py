@@ -14,6 +14,74 @@ def _duration_type(q: float) -> str:
     choices = [(4, "whole"), (2, "half"), (1, "quarter"), (.5, "eighth"), (.25, "16th"), (.125, "32nd")]
     return min(choices, key=lambda x: abs(q-x[0]))[1]
 
+def _ticks(value: float, divisions: int) -> int:
+    return max(0, int(round(value * divisions)))
+
+def _emit_note(parent, note, divisions: int, *, chord: bool = False) -> None:
+    ne = _sub(parent, "note")
+    if chord:
+        _sub(ne, "chord")
+    if note.is_rest:
+        _sub(ne, "rest")
+    else:
+        pit = _sub(ne, "pitch")
+        _sub(pit, "step", note.pitch.step)
+        if note.pitch.alter:
+            _sub(pit, "alter", note.pitch.alter)
+        _sub(pit, "octave", note.pitch.octave)
+    _sub(ne, "duration", max(1, _ticks(note.duration, divisions)))
+    _sub(ne, "voice", note.voice)
+    _sub(ne, "type", _duration_type(note.duration))
+    for _ in range(note.dots):
+        _sub(ne, "dot")
+    if note.tie_start:
+        _sub(ne, "tie", type="start")
+    if note.tie_stop:
+        _sub(ne, "tie", type="stop")
+    _sub(ne, "staff", note.staff)
+    for lyr in note.lyrics:
+        le = _sub(ne, "lyric")
+        if lyr.syllabic:
+            _sub(le, "syllabic", lyr.syllabic)
+        _sub(le, "text", lyr.text)
+
+def _emit_timed_notes(measure_el, notes, divisions: int) -> None:
+    by_voice = {}
+    for index, note in enumerate(notes):
+        by_voice.setdefault(note.voice, []).append((index, note))
+
+    previous_cursor = 0
+    first_voice = True
+    for voice in sorted(by_voice):
+        if not first_voice and previous_cursor > 0:
+            backup = _sub(measure_el, "backup")
+            _sub(backup, "duration", previous_cursor)
+        first_voice = False
+
+        cursor = 0
+        last_onset = None
+        voice_notes = sorted(
+            by_voice[voice],
+            key=lambda item: (item[1].onset, item[0]),
+        )
+        for _, note in voice_notes:
+            target = _ticks(note.onset, divisions)
+            chord = last_onset is not None and target == last_onset
+            if not chord:
+                if target > cursor:
+                    forward = _sub(measure_el, "forward")
+                    _sub(forward, "duration", target - cursor)
+                    cursor = target
+                elif target < cursor:
+                    backup = _sub(measure_el, "backup")
+                    _sub(backup, "duration", cursor - target)
+                    cursor = target
+            _emit_note(measure_el, note, divisions, chord=chord)
+            if not chord:
+                cursor = target + max(1, _ticks(note.duration, divisions))
+                last_onset = target
+        previous_cursor = cursor
+
 def export_musicxml(score: Score, path: str | Path, divisions: int = 480) -> Path:
     p = Path(path)
     root = ET.Element("score-partwise", {"version": "4.0"})
@@ -22,12 +90,10 @@ def export_musicxml(score: Score, path: str | Path, divisions: int = 480) -> Pat
     identification = _sub(root, "identification")
     if score.composer:
         _sub(identification, "creator", score.composer, type="composer")
-
     part_list = _sub(root, "part-list")
     for part in score.parts:
         sp = _sub(part_list, "score-part", id=part.id)
         _sub(sp, "part-name", part.name)
-
     for part in score.parts:
         pe = _sub(root, "part", id=part.id)
         for mi, m in enumerate(part.measures):
@@ -50,7 +116,6 @@ def export_musicxml(score: Score, path: str | Path, divisions: int = 480) -> Pat
                 _sub(met, "beat-unit", "quarter")
                 _sub(met, "per-minute", f"{m.tempo:g}")
                 _sub(direction, "sound", tempo=f"{m.tempo:g}")
-
             for h in m.harmonies:
                 he = _sub(me, "harmony")
                 re = _sub(he, "root")
@@ -70,33 +135,7 @@ def export_musicxml(score: Score, path: str | Path, divisions: int = 480) -> Pat
                         alter = 1 if "#" in h.bass else -1 if "b" in h.bass else 0
                         if alter:
                             _sub(be, "bass-alter", alter)
-
-            for n in m.notes:
-                ne = _sub(me, "note")
-                if n.is_rest:
-                    _sub(ne, "rest")
-                else:
-                    pit = _sub(ne, "pitch")
-                    _sub(pit, "step", n.pitch.step)
-                    if n.pitch.alter:
-                        _sub(pit, "alter", n.pitch.alter)
-                    _sub(pit, "octave", n.pitch.octave)
-                _sub(ne, "duration", max(1, int(round(n.duration * divisions))))
-                _sub(ne, "voice", n.voice)
-                _sub(ne, "type", _duration_type(n.duration))
-                for _ in range(n.dots):
-                    _sub(ne, "dot")
-                if n.tie_start:
-                    _sub(ne, "tie", type="start")
-                if n.tie_stop:
-                    _sub(ne, "tie", type="stop")
-                _sub(ne, "staff", n.staff)
-                for lyr in n.lyrics:
-                    le = _sub(ne, "lyric")
-                    if lyr.syllabic:
-                        _sub(le, "syllabic", lyr.syllabic)
-                    _sub(le, "text", lyr.text)
-
+            _emit_timed_notes(me, m.notes, divisions)
     xml_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     if p.suffix.lower() == ".mxl":
         p.parent.mkdir(parents=True, exist_ok=True)
