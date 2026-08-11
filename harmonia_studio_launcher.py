@@ -1,4 +1,4 @@
-from harmonia_studio.app import main
+from harmonia_studio.enhanced_app import main
 
 if __name__ == "__main__":
     main()
