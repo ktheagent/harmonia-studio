@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 VERSION = "0.9.0"
-BUILD = 44
+BUILD = 45
 CHANNEL = "preview"
 
 @dataclass(frozen=True)
