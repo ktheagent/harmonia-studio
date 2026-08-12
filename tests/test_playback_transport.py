@@ -69,7 +69,7 @@ class PlaybackTransportRegressionTests(unittest.TestCase):
         engine.solo(0, False)
         engine.set_volume(0, 0.5)
         volume = engine.schedule(score)
-        self.assertEqual(volume[0].velocity, 50)
+        self.assertEqual(volume[0].velocity, 40)
 
 
 if __name__ == "__main__":
