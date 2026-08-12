@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from harmonia_studio.settings import AppSettings, SettingsService
-from harmonia_studio.version import get_version_info
+from harmonia_studio.version import BUILD, get_version_info
 from harmonia_studio.diagnostics import diagnostics
 from harmonia_studio.errors import AppError, ErrorCategory
 
@@ -11,7 +11,9 @@ class FoundationTests(unittest.TestCase):
     def test_version(self):
         v = get_version_info()
         self.assertEqual(v.version, "0.9.0")
-        self.assertEqual(v.build, 44)
+        self.assertEqual(v.build, BUILD)
+        self.assertGreaterEqual(v.build, 44)
+        self.assertEqual(v.channel, "preview")
 
     def test_default_settings(self):
         with tempfile.TemporaryDirectory() as d:
