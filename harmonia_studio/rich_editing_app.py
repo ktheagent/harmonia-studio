@@ -6,10 +6,14 @@ from .desktop_editing import parse_harmony_symbol, validate_duration
 
 class RichEditingHarmoniaApp(EnhancedHarmoniaApp):
     """Build-46 desktop layer exposing duration, lyrics, harmony and measure editing."""
-
     def _build_shell(self):
         super()._build_shell()
-        controls = ttk.Frame(self.workspace.master)
+        # EnhancedHarmoniaApp replaces ``self.workspace`` with the notation
+        # canvas. Descendant toolbars must be packed in the same container as
+        # ``workspace_title``; using the canvas/viewport as the parent makes Tk
+        # reject ``before=self.workspace_title`` on Windows.
+        center = self.workspace_title.master
+        controls = ttk.Frame(center)
         controls.pack(fill="x", before=self.workspace_title)
 
         ttk.Label(controls, text="Duration").pack(side="left", padx=(4,2))
@@ -30,6 +34,12 @@ class RichEditingHarmoniaApp(EnhancedHarmoniaApp):
         ttk.Separator(controls, orient="vertical").pack(side="left", fill="y", padx=6)
         ttk.Button(controls, text="+ Measure", command=self._add_measure_for_selection).pack(side="left", padx=2)
         ttk.Button(controls, text="− Measure", command=self._remove_measure_for_selection).pack(side="left", padx=2)
+
+        # Later build layers historically use ``self.workspace.master`` as the
+        # toolbar insertion point. Preserve that contract with a stable anchor
+        # whose master is the shared center frame; the notation canvas remains
+        # available as ``self.preview_canvas``.
+        self.workspace = self.workspace_title
 
     def _selected_location(self):
         if self.selected_note is None:
