@@ -26,10 +26,29 @@ jobs:
         run: python -m compileall harmonia_studio
 
       - name: Smoke import
-        run: python -c "import harmonia_studio; import harmonia_studio.app; import harmonia_studio.cli"
+        run: python -c "import harmonia_studio; import harmonia_studio.app; import harmonia_studio.resilient_app; import harmonia_studio.cli"
 
       - name: Build Windows executable
         run: pyinstaller --noconfirm --windowed --name Harmonia-Studio harmonia_studio_launcher.py
+
+      - name: Smoke packaged Windows executable
+        shell: pwsh
+        run: |
+          $env:HARMONIA_STARTUP_SMOKE = "1"
+          $env:HARMONIA_SMOKE_MS = "1500"
+          $exe = Join-Path $PWD "dist\Harmonia-Studio\Harmonia-Studio.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Packaged executable not found: $exe"
+          }
+          $process = Start-Process -FilePath $exe -PassThru
+          if (-not $process.WaitForExit(15000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            throw "Packaged executable did not complete startup smoke test within 15 seconds"
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged executable startup smoke failed with exit code $($process.ExitCode)"
+          }
+          Write-Host "Packaged executable startup smoke passed"
 
       - name: Read package version
         id: package
