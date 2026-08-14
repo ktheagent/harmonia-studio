@@ -13,7 +13,18 @@ class AudiblePlaybackHarmoniaApp(PlaybackHarmoniaApp):
         super().__init__(*args, **kwargs)
 
     def _current_part_volumes(self) -> dict[int, float]:
-        return dict(self.playback.volumes)
+        score = self.controller.score
+        if score is None:
+            return {}
+        volumes: dict[int, float] = {}
+        for index, _part in enumerate(score.parts):
+            if index in self.playback.muted:
+                volumes[index] = 0.0
+            elif self.playback.soloed and index not in self.playback.soloed:
+                volumes[index] = 0.0
+            else:
+                volumes[index] = self.playback.volumes.get(index, 1.0)
+        return volumes
 
     def _play_score(self):
         score = self.controller.score
