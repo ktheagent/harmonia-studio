@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
+import math
 import os
 import platform
 import shutil
@@ -24,6 +25,15 @@ def logs_dir() -> Path:
     p.mkdir(parents=True, exist_ok=True)
     return p
 
+def _clamp_volume(value) -> float:
+    try:
+        volume = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(volume):
+        return 1.0
+    return max(0.0, min(1.0, volume))
+
 @dataclass
 class AppSettings:
     schemaVersion: int = SCHEMA_VERSION
@@ -32,6 +42,9 @@ class AppSettings:
     recentProjectLimit: int = 10
     reopenLastProject: bool = False
     autosaveEnabled: bool = True
+    speakerOutputEnabled: bool = True
+    playbackMasterVolume: float = 1.0
+    loopSelectedMeasure: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> "AppSettings":
@@ -47,6 +60,9 @@ class AppSettings:
             recentProjectLimit=max(1, min(50, int(data.get("recentProjectLimit", 10)))),
             reopenLastProject=bool(data.get("reopenLastProject", False)),
             autosaveEnabled=bool(data.get("autosaveEnabled", True)),
+            speakerOutputEnabled=bool(data.get("speakerOutputEnabled", True)),
+            playbackMasterVolume=_clamp_volume(data.get("playbackMasterVolume", 1.0)),
+            loopSelectedMeasure=bool(data.get("loopSelectedMeasure", False)),
         )
 
 class SettingsService:
