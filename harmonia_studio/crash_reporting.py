@@ -15,6 +15,18 @@ def format_exception_text(exc_type, exc_value, tb) -> str:
     return "".join(traceback.format_exception(exc_type, exc_value, tb)).rstrip()
 
 
+def _write_smoke_report(text: str) -> None:
+    report = os.environ.get("HARMONIA_SMOKE_REPORT", "").strip()
+    if not report:
+        return
+    try:
+        path = Path(report)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text.rstrip() + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _show_error_dialog(message: str, log_path: Path) -> None:
     try:
         from tkinter import messagebox
@@ -37,7 +49,9 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
     except Exception:
         text = format_exception_text(*sys.exc_info())
         logger.error("Fatal application startup error\n%s", text)
-        if not smoke:
+        if smoke:
+            _write_smoke_report("STARTUP ERROR\n" + text)
+        else:
             _show_error_dialog("Harmonia Studio could not start.", log_path)
         return 1
 
@@ -49,6 +63,7 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
         text = format_exception_text(exc_type, exc_value, tb)
         logger.error("Unhandled Tk callback exception\n%s", text)
         if smoke:
+            _write_smoke_report("TK CALLBACK ERROR\n" + text)
             try:
                 app.after_idle(app.destroy)
             except Exception:
@@ -70,8 +85,14 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
     except Exception:
         text = format_exception_text(*sys.exc_info())
         logger.error("Fatal Tk main-loop error\n%s", text)
-        if not smoke:
+        if smoke:
+            _write_smoke_report("MAIN LOOP ERROR\n" + text)
+        else:
             _show_error_dialog("Harmonia Studio stopped unexpectedly.", log_path)
         return 1
 
-    return 1 if callback_failed else 0
+    if callback_failed:
+        return 1
+    if smoke:
+        _write_smoke_report("OK\nPackaged GUI startup smoke completed successfully.")
+    return 0
