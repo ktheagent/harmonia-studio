@@ -36,6 +36,9 @@ jobs:
         run: |
           $env:HARMONIA_STARTUP_SMOKE = "1"
           $env:HARMONIA_SMOKE_MS = "1500"
+          $report = Join-Path $PWD "harmonia-startup-smoke.txt"
+          $env:HARMONIA_SMOKE_REPORT = $report
+          Remove-Item $report -ErrorAction SilentlyContinue
           $exe = Join-Path $PWD "dist\Harmonia-Studio\Harmonia-Studio.exe"
           if (-not (Test-Path $exe)) {
             throw "Packaged executable not found: $exe"
@@ -43,10 +46,26 @@ jobs:
           $process = Start-Process -FilePath $exe -PassThru
           if (-not $process.WaitForExit(15000)) {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            if (Test-Path $report) {
+              Write-Host "---- Harmonia startup smoke report ----"
+              Get-Content $report
+              Write-Host "---------------------------------------"
+            }
             throw "Packaged executable did not complete startup smoke test within 15 seconds"
+          }
+          if (Test-Path $report) {
+            Write-Host "---- Harmonia startup smoke report ----"
+            Get-Content $report
+            Write-Host "---------------------------------------"
+          } else {
+            throw "Packaged executable exited without writing a startup smoke report"
           }
           if ($process.ExitCode -ne 0) {
             throw "Packaged executable startup smoke failed with exit code $($process.ExitCode)"
+          }
+          $reportText = Get-Content $report -Raw
+          if ($reportText -notmatch "(?m)^OK$") {
+            throw "Packaged executable smoke report did not confirm successful startup"
           }
           Write-Host "Packaged executable startup smoke passed"
 
