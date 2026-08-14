@@ -18,14 +18,12 @@ def score_fragment(score: Score, start_measure: int = 0, end_measure: int | None
     parts: list[Part] = []
     for part in score.parts:
         stop = None if end is None else end + 1
-        parts.append(
-            Part(
-                id=part.id,
-                name=part.name,
-                instrument=part.instrument,
-                measures=list(part.measures[start:stop]),
-            )
-        )
+        parts.append(Part(
+            id=part.id,
+            name=part.name,
+            instrument=part.instrument,
+            measures=list(part.measures[start:stop]),
+        ))
     return Score(
         title=score.title,
         composer=score.composer,
@@ -44,9 +42,13 @@ def write_pcm16_wave(path: str | Path, audio: np.ndarray, sample_rate: int) -> P
     with wave.open(str(target), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
-        wavsetframerate(int(sample_rate))
-        wawwriteframes(pcm.tobytes())
+        wav.setframerate(int(sample_rate))
+        wav.writeframes(pcm.tobytes())
     return target
+
+
+# Compatibility alias used by the regression tests and external callers.
+write_pcm16_wav = write_pcm16_wave
 
 
 class NullAudioOutput:
