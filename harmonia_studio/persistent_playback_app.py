@@ -13,7 +13,6 @@ class PersistentPlaybackHarmoniaApp(DiagnosticAudioHarmoniaApp):
 
     def _build_shell(self):
         super()._build_shell()
-
         # Restore the loop preference into the existing transport control.
         self.playback_loop_var.set(bool(self.settings.loopSelectedMeasure))
 
@@ -31,6 +30,13 @@ class PersistentPlaybackHarmoniaApp(DiagnosticAudioHarmoniaApp):
 
         ttk.Label(panel, text="Master volume").pack(side="left", padx=(8, 4))
         self.master_volume_var = tk.DoubleVar(value=clamp_master_volume(self.settings.playbackMasterVolume))
+        # Create the percentage label before the Scale. On Windows/Tk the Scale's
+        # command may run during widget initialization, so the callback must never
+        # observe an uninitialized label.
+        self.master_volume_label = ttk.Label(
+            panel,
+            text=f"{int(round(self.master_volume_var.get() * 100))}%",
+        )
         ttk.Scale(
             panel,
             from_=0.0,
@@ -40,7 +46,6 @@ class PersistentPlaybackHarmoniaApp(DiagnosticAudioHarmoniaApp):
             variable=self.master_volume_var,
             command=self._save_master_volume,
         ).pack(side="left")
-        self.master_volume_label = ttk.Label(panel, text=f"{int(round(self.master_volume_var.get() * 100))}%")
         self.master_volume_label.pack(side="left", padx=(4, 8))
 
     def _save_preferences(self) -> None:
@@ -57,7 +62,9 @@ class PersistentPlaybackHarmoniaApp(DiagnosticAudioHarmoniaApp):
     def _save_master_volume(self, value) -> None:
         volume = clamp_master_volume(value)
         self.settings.playbackMasterVolume = volume
-        self.master_volume_label.configure(text=f"{int(round(volume * 100))}%")
+        label = getattr(self, "master_volume_label", None)
+        if label is not None:
+            label.configure(text=f"{int(round(volume * 100))}%")
         self._save_preferences()
 
     def _apply_loop_setting(self):
