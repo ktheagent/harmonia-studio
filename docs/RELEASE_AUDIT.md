@@ -1,48 +1,58 @@
 # Harmonia Studio 0.9.0 Preview Release Audit
 
-Status: IN PROGRESS
+Status: CI-VALIDATED PREVIEW
 
-Audit date: 2026-08-11
+Audit date: 2026-08-16
 
-This file is the current release-audit record and supersedes the stale GitHub Actions / Windows build status text at the end of `docs/CHECKPOINTS.md`.
+This file is the current release-audit record and supersedes stale GitHub Actions / Windows build status text in older checkpoint records.
 
 ## Verified
 
 - Repository: `ktheagent/harmonia-studio`
 - Default release branch: `main`
 - Project version: `0.9.0`
-- All 44 roadmap features are recorded as PASSED in `docs/CHECKPOINTS.md`.
-- Preview release audit records 89 automated tests passed.
-- Python source compile passed in the preview audit.
-- MusicXML/MIDI export and re-import integration passed in the preview audit.
-- PDF and WAV/MP3 export tests passed in the feature suite.
-- GitHub Actions workflow `Validate Harmonia Studio Windows Build` run #7 completed the `test-and-package` job successfully for commit `343d5cdd8b06865baede423730b6ea962c42dcd9`.
-- The Windows build job uses PyInstaller; the successful #7 job confirms the CI build step completed successfully.
+- Current application build: `54`
+- All 44 roadmap checkpoints are recorded as PASSED at preview/MVP level.
+- Automated unit, regression, integration, lifecycle, playback, import/export, and crash-reporting tests pass in the current Windows CI workflow.
+- Python source compilation and smoke imports pass in Windows CI.
+- MusicXML/MXL and MIDI import/export integration is covered by automated tests.
+- PDF and WAV/MP3 export paths have automated coverage where their optional external tools are available.
+- Workflow `Validate Harmonia Studio Windows Build` run #74 completed successfully for commit `c24d1dbfc1bbbeb5f6ca7018c88c1633c912bbf3`.
+- The Windows job builds `Harmonia-Studio.exe` with PyInstaller and launches the packaged executable in CI smoke mode.
+- The packaged GUI startup smoke report returned `OK` and the workflow accepted it successfully.
+- Run #74 produced artifact `Harmonia-Studio-0.9.0-Windows`, size 159 MB, digest `sha256:cba7d8e8a55fea70388f2b23c1fa22916aedbea0a258936e74adf71ed35dfed6`.
+- The workflow packages `Harmonia-Studio-0.9.0-Windows-Portable.zip` and generates `SHA256SUMS-Windows.txt`.
 - The source release archive is not stored in the repository.
-- `SHA256SUMS.txt` is present in the repository root.
 
 ## Release-quality corrections applied
 
-Commit `ca7aa2c197f7ca5d67c376f20f6f7a12b7585138` updates the Windows CI pipeline to:
+The current Windows release pipeline:
 
-- Use `actions/checkout@v5`.
-- Use `actions/setup-python@v6`.
-- Use `actions/upload-artifact@v6`.
-- Run a smoke-import check before packaging.
-- Read the release version from `pyproject.toml`.
-- Package the PyInstaller output as `Harmonia-Studio-<version>-Windows-Portable.zip`.
-- Generate `SHA256SUMS-Windows.txt`.
-- Fail the job if expected release files are missing.
+- Uses `actions/checkout@v5`.
+- Uses `actions/setup-python@v6` with Python 3.12.
+- Uses `actions/upload-artifact@v6`.
+- Runs the automated test suite.
+- Compiles the Python source tree.
+- Runs smoke imports.
+- Builds the Windows executable with PyInstaller.
+- Launches the packaged Windows executable in startup-smoke mode.
+- Captures startup/Tk callback failures into a deterministic smoke report.
+- Packages the portable Windows build.
+- Generates a SHA-256 checksum file.
+- Fails if expected release files are missing.
+
+Recent hardening also corrected Windows-specific Tk menu handling, workspace toolbar packing, GUI crash reporting, persistent playback preferences, and packaged-startup smoke validation.
 
 ## Still not verified
 
-- The new CI packaging workflow from commit `ca7aa2c197f7ca5d67c376f20f6f7a12b7585138` has not yet been confirmed successful in this audit.
-- The exact artifact record for the new versioned portable ZIP and checksum file is not yet confirmed.
-- The Windows executable has not been launched and interactively tested on a Windows desktop in this audit.
-- Physical audio, MIDI, printer, and other device tests have not been performed.
+- The Windows executable has not been manually exercised through the full interactive GUI workflow on a physical Windows desktop.
+- Physical speaker/audio-device playback has not been manually verified.
+- Physical MIDI hardware, microphone, printer, and other device integrations have not been manually tested.
+- Pause/resume audio remains measure-level rather than sample-accurate.
+- The built-in audio renderer is reference-quality rather than a professional sampled-instrument library.
 - OMR accuracy has not been certified against a professional multi-publisher benchmark corpus.
-- Audio transcription accuracy has not been certified against a professional polyphonic benchmark corpus.
+- Dense polyphonic audio-transcription accuracy has not been certified against a professional benchmark corpus.
 
 ## Release classification
 
-Harmonia Studio remains `0.9.0` preview until the current Windows packaging workflow is confirmed and the remaining manual/device-test limitations are accepted for the preview release.
+Harmonia Studio remains `0.9.0` preview. The current Windows CI now validates tests, source compilation, PyInstaller packaging, packaged GUI startup, portable packaging, checksum generation, and artifact upload. This is not equivalent to full manual Windows UX or physical-device validation.
