@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import os
+
 from .crash_reporting import run_tk_app
 from .menu_safe_app import MenuSafeHarmoniaApp
 
 
 def main() -> int:
+    if os.environ.get("HARMONIA_WORKFLOW_SMOKE", "").strip() == "1":
+        from .workflow_smoke_app import WorkflowSmokeHarmoniaApp
+        return run_tk_app(WorkflowSmokeHarmoniaApp, smoke_env="HARMONIA_WORKFLOW_SMOKE")
     return run_tk_app(MenuSafeHarmoniaApp)
 
 
