@@ -15,8 +15,8 @@ def format_exception_text(exc_type, exc_value, tb) -> str:
     return "".join(traceback.format_exception(exc_type, exc_value, tb)).rstrip()
 
 
-def _write_smoke_report(text: str) -> None:
-    report = os.environ.get("HARMONIA_SMOKE_REPORT", "").strip()
+def _write_smoke_report(text: str, report_env: str = "HARMONIA_SMOKE_REPORT") -> None:
+    report = os.environ.get(report_env, "").strip()
     if not report:
         return
     try:
@@ -38,7 +38,14 @@ def _show_error_dialog(message: str, log_path: Path) -> None:
         pass
 
 
-def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") -> int:
+def run_tk_app(
+    app_class: Type,
+    *,
+    smoke_env: str = "HARMONIA_STARTUP_SMOKE",
+    report_env: str = "HARMONIA_SMOKE_REPORT",
+    auto_close: bool = True,
+    write_success_report: bool = True,
+) -> int:
     """Run a Tk app with startup and callback crash reporting."""
     log_path = configure_logging()
     logger = logging.getLogger("harmonia")
@@ -50,7 +57,7 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
         text = format_exception_text(*sys.exc_info())
         logger.error("Fatal application startup error\n%s", text)
         if smoke:
-            _write_smoke_report("STARTUP ERROR\n" + text)
+            _write_smoke_report("STARTUP ERROR\n" + text, report_env)
         else:
             _show_error_dialog("Harmonia Studio could not start.", log_path)
         return 1
@@ -63,7 +70,7 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
         text = format_exception_text(exc_type, exc_value, tb)
         logger.error("Unhandled Tk callback exception\n%s", text)
         if smoke:
-            _write_smoke_report("TK CALLBACK ERROR\n" + text)
+            _write_smoke_report("TK CALLBACK ERROR\n" + text, report_env)
             try:
                 app.after_idle(app.destroy)
             except Exception:
@@ -73,7 +80,7 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
 
     app.report_callback_exception = report_callback_exception
 
-    if smoke:
+    if smoke and auto_close:
         try:
             delay_ms = max(250, min(10_000, int(os.environ.get("HARMONIA_SMOKE_MS", "1500"))))
         except ValueError:
@@ -86,13 +93,13 @@ def run_tk_app(app_class: Type, *, smoke_env: str = "HARMONIA_STARTUP_SMOKE") ->
         text = format_exception_text(*sys.exc_info())
         logger.error("Fatal Tk main-loop error\n%s", text)
         if smoke:
-            _write_smoke_report("MAIN LOOP ERROR\n" + text)
+            _write_smoke_report("MAIN LOOP ERROR\n" + text, report_env)
         else:
             _show_error_dialog("Harmonia Studio stopped unexpectedly.", log_path)
         return 1
 
     if callback_failed:
         return 1
-    if smoke:
-        _write_smoke_report("OK\nPackaged GUI startup smoke completed successfully.")
+    if smoke and write_success_report:
+        _write_smoke_report("OK\nPackaged GUI startup smoke completed successfully.", report_env)
     return 0
