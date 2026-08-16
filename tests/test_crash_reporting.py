@@ -55,6 +55,19 @@ class CrashReportingTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertTrue(FakeTkApp.instances[-1].destroyed)
 
+    def test_smoke_mode_can_run_without_auto_close(self):
+        FakeTkApp.instances.clear()
+        with patch.dict(os.environ, {"HARMONIA_WORKFLOW_SMOKE": "1"}, clear=False):
+            result = run_tk_app(
+                FakeTkApp,
+                smoke_env="HARMONIA_WORKFLOW_SMOKE",
+                auto_close=False,
+                write_success_report=False,
+            )
+        self.assertEqual(result, 0)
+        self.assertFalse(FakeTkApp.instances[-1].destroyed)
+        self.assertEqual(FakeTkApp.instances[-1].scheduled, [])
+
     def test_callback_exception_fails_smoke_run(self):
         with patch.dict(os.environ, {"HARMONIA_STARTUP_SMOKE": "1"}, clear=False):
             result = run_tk_app(CallbackFailureApp)
