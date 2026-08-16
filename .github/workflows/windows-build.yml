@@ -26,7 +26,7 @@ jobs:
         run: python -m compileall harmonia_studio
 
       - name: Smoke import
-        run: python -c "import harmonia_studio; import harmonia_studio.app; import harmonia_studio.resilient_app; import harmonia_studio.cli"
+        run: python -c "import harmonia_studio; import harmonia_studio.app; import harmonia_studio.resilient_app; import harmonia_studio.workflow_smoke_app; import harmonia_studio.cli"
 
       - name: Build Windows executable
         run: pyinstaller --noconfirm --windowed --name Harmonia-Studio harmonia_studio_launcher.py
@@ -36,10 +36,10 @@ jobs:
         run: |
           $env:HARMONIA_STARTUP_SMOKE = "1"
           $env:HARMONIA_SMOKE_MS = "1500"
-          $report = Join-Path $PWD "harmonia-startup-smoke.txt"
+          $report = Join-Path $PWD ,"harmonia-startup-smoke.txt"
           $env:HARMONIA_SMOKE_REPORT = $report
           Remove-Item $report -ErrorAction SilentlyContinue
-          $exe = Join-Path $PWD "dist\Harmonia-Studio\Harmonia-Studio.exe"
+          $exe = Join-Path $PWD "dist\Harmonia-Studio\HArmonia-Studio.exe"
           if (-not (Test-Path $exe)) {
             throw "Packaged executable not found: $exe"
           }
@@ -69,11 +69,65 @@ jobs:
           }
           Write-Host "Packaged executable startup smoke passed"
 
+      - name: Smoke packaged GUI workflow
+        shell: pwsh
+        run: |
+          Remove-Item Env:HARMONIA_STARTUP_SMOKE -ErrorAction SilentlyContinue
+          $env:HARMONIA_WORKFLOW_SMOKE = "1"
+          $env:HARMONIA_SMOKE_MS = "10000"
+          $report = Join-Path $PWD ,"harmonia-workflow-smoke.txt"
+          $crashReport = Join-Path $PWD "harmonia-workflow-crash.txt"
+          $env:HARMONIA_WORKFLOW_REPORT = $report
+          $env:HARMONIA_SMOKE_REPORT = $crashReport
+          Remove-Item $report -ErrorAction SilentlyContinue
+          Remove-Item $crashReport -ErrorAction SilentlyContinue
+          $exe = Join-Path $PWD ,"dist\Harmonia-Studio\HArmonia-Studio.exe"
+          $process = Start-Process -FilePath $exe -PassThru
+          if (-not $process.WaitForExit(20000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            if (Test-Path $report) {
+              Write-Host "---- Harmonia workflow smoke report ----"
+              Get-Content $report
+              Write-Host "-----------------------------------------"
+            }
+            if (Test-Path $crashReport) {
+              Write-Host "---- Harmonia workflow crash report ----"
+              Get-Content $crashReport
+              Write-Host "----------------------------------------"
+            }
+            throw "Packaged GUI workflow smoke did not finish within 20 seconds"
+          }
+          if (Test-Path $report) {
+            Write-Host "---- Harmonia workflow smoke report ----"
+            Get-Content $report
+            Write-Host "----------------------------------------"
+          } else {
+            if (Test-Path $crashReport) {
+              Write-Host "---- Harmonia workflow crash report ----"
+              Get-Content $crashReport
+              Write-Host "----------------------------------------"
+            }
+            throw "Packaged GUI workflow exited without writing its workflow report"
+          }
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path $crashReport) {
+              Write-Host "---- Harmonia workflow crash report ----"
+              Get-Content $crashReport
+              Write-Host "----------------------------------------"
+            }
+            throw "Packaged GURI workflow smoke failed with exit code $($process.ExitCode)"
+          }
+          $firstLine = (Get-Content $report | Select-Object -First 1).Trim()
+          if ($firstLine -ne "OK") {
+            throw "Packaged GUI workflow smoke report did not confirm success"
+          }
+          Write-Host "Packaged GUI workflow smoke passed"
+
       - name: Read package version
         id: package
         shell: pwsh
         run: |
-          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $version = python -c "import tomlib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Package portable Windows build
