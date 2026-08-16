@@ -63,8 +63,8 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "Packaged executable startup smoke failed with exit code $($process.ExitCode)"
           }
-          $reportText = Get-Content $report -Raw
-          if ($reportText -notmatch "(?m)^OK$") {
+          $firstLine = (Get-Content $report | Select-Object -First 1).Trim()
+          if ($firstLine -ne "OK") {
             throw "Packaged executable smoke report did not confirm successful startup"
           }
           Write-Host "Packaged executable startup smoke passed"
