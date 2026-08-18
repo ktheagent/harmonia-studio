@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from .crash_reporting import run_tk_app
-from .menu_safe_app import MenuSafeHarmoniaApp
+from .professional_shell_app import ProfessionalShellHarmoniaApp
 
 
 def main() -> int:
@@ -17,7 +17,7 @@ def main() -> int:
             auto_close=False,
             write_success_report=False,
         )
-    return run_tk_app(MenuSafeHarmoniaApp)
+    return run_tk_app(ProfessionalShellHarmoniaApp)
 
 
 if __name__ == "__main__":
